@@ -1,0 +1,677 @@
+
+<!DOCTYPE html>
+
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>Redis笔记01 &#8212; test v1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="redis01">
+<h1>Redis笔记01<a class="headerlink" href="#redis01" title="Permalink to this heading">¶</a></h1>
+<blockquote>
+<div><p>本笔记参考 <a class="reference external" href="https://github.com/xiaolincoder/CS-Base">小林coding</a></p>
+<p><a class="reference external" href="http://doc.redisfans.com">命令查询手册</a></p>
+<p><a class="reference external" href="https://www.bilibili.com/video/BV1Rv41177Af?spm_id_from=333.337.search-card.all.click">尚硅谷redis入门到精通</a></p>
+<p>Redis实战</p>
+</div></blockquote>
+<section id="redis">
+<h2>Redis基础<a class="headerlink" href="#redis" title="Permalink to this heading">¶</a></h2>
+<section id="nosql">
+<h3>了解NoSql<a class="headerlink" href="#nosql" title="Permalink to this heading">¶</a></h3>
+<p>NoSql（not only sql), 泛指非关系型数据库。</p>
+<p>NoSql不依赖业务逻辑存储，以 key-value的形式存贮。</p>
+<p>特点：</p>
+<ul class="simple">
+<li><p>不遵循sql标准</p></li>
+<li><p>不支持ACID。原子性（<strong>A</strong>tomicity，或称不可分割性）、一致性（<strong>C</strong>onsistency）、隔离性（<strong>I</strong>solation，又称独立性）、持久性（<strong>D</strong>urability）。</p></li>
+<li><p>远超SQL的性能。</p></li>
+</ul>
+<blockquote>
+<div><p>适用场景</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>对数据高并发读写</p></li>
+<li><p>海量数据的读写</p></li>
+<li><p>对数据高可扩展性的</p></li>
+</ul>
+<blockquote>
+<div><p>不适用场景</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>需要事务支持</p></li>
+<li><p>基于sql的结构化存储</p></li>
+</ul>
+<blockquote>
+<div><p>常见的NOSql数据库</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>Memcache</p></li>
+<li><p>Redis</p></li>
+<li><p>MongoDB</p></li>
+</ul>
+</section>
+<section id="id1">
+<h3>连接redis<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<p>shell使用 redis-cli</p>
+<blockquote>
+<div><p>通过docker 使用容器内redis-cli连接现有容器的redis-server</p>
+</div></blockquote>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># 现有redis-server容器</span>
+docker run --name test_redis -v <span class="nv">$PWD</span>/develop/redis:/data:rw -p <span class="m">6379</span>:6379 <span class="se">\</span>
+    -d redis redis-server --save <span class="m">60</span> <span class="m">1</span> --loglevel warning
+<span class="c1"># 查看 redis-server端的网络地址</span>
+docker network inspect bridge
+<span class="c1"># 找到具体地址</span>
+<span class="c1"># 连接server</span>
+docker run -it  --rm redis redis-cli -h <span class="m">172</span>.17.0.3
+</pre></div>
+</div>
+</section>
+<section id="id2">
+<h3>Redis 常用操作及数据类型<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<section id="key">
+<h4>key操作<a class="headerlink" href="#key" title="Permalink to this heading">¶</a></h4>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; keys * <span class="c1"># 查看所有键</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;k1&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; exists k1 <span class="c1"># 是否存在</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; <span class="nb">type</span> k1  <span class="c1"># 数据类型</span>
+string
+<span class="m">172</span>.17.0.3:6379&gt; del k1 <span class="c1"># 删除</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; <span class="nb">set</span> k2 <span class="m">11</span> <span class="c1"># 设置k2 string</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; unlink k2 <span class="c1"># 非阻塞删除</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; expire k2 <span class="m">10</span> <span class="c1"># 设置 数据存活时间</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; ttl k2 <span class="c1"># 查看存活时间</span>
+<span class="o">(</span>integer<span class="o">)</span> -2
+<span class="m">172</span>.17.0.3:6379&gt; <span class="k">select</span> <span class="m">1</span> <span class="c1"># 选择数据库</span>
+OK
+<span class="m">172</span>.17.0.3:6379<span class="o">[</span><span class="m">1</span><span class="o">]</span>&gt; dbsize  <span class="c1"># 当前数据库数据数量</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379<span class="o">[</span><span class="m">1</span><span class="o">]</span>&gt; <span class="k">select</span> <span class="m">0</span> <span class="c1"># 选择数据库</span>
+OK
+
+<span class="m">172</span>.17.0.3:6379&gt; flushdb <span class="c1"># 清空当前数据库</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; flushall <span class="c1"># 清空所有</span>
+OK
+</pre></div>
+</div>
+</section>
+<section id="string">
+<h4>String<a class="headerlink" href="#string" title="Permalink to this heading">¶</a></h4>
+<p>字符串value的最大是512M。</p>
+<blockquote>
+<div><p>常用命令</p>
+</div></blockquote>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; <span class="nb">set</span> k1 <span class="s2">&quot;a&quot;</span>  
+OK
+<span class="m">172</span>.17.0.3:6379&gt; <span class="nb">set</span> k1 <span class="s2">&quot;a&quot;</span> NX <span class="c1"># 存在失败</span>
+<span class="o">(</span>nil<span class="o">)</span>
+<span class="m">172</span>.17.0.3:6379&gt; <span class="nb">set</span> k1 <span class="s2">&quot;a&quot;</span> XX <span class="c1"># 不存在失败</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; get k1
+<span class="s2">&quot;a&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; <span class="nb">set</span> k1  <span class="s2">&quot;b&quot;</span> EX <span class="m">20</span> <span class="c1"># 20 秒超时</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; ttl k1
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">15</span>
+<span class="m">172</span>.17.0.3:6379&gt; <span class="nb">set</span> k1  <span class="s2">&quot;b&quot;</span> PX <span class="m">20</span> <span class="c1"># 20毫秒超时</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; ttl k1
+<span class="o">(</span>integer<span class="o">)</span> -2
+<span class="m">172</span>.17.0.3:6379&gt; get k1
+<span class="s2">&quot;bb&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; append k1 <span class="s2">&quot;cc&quot;</span> <span class="c1"># 在字符串后追加</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">4</span>
+<span class="m">172</span>.17.0.3:6379&gt; get k1
+<span class="s2">&quot;bbcc&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; strlen k1  <span class="c1"># 长度</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">4</span>
+<span class="m">172</span>.17.0.3:6379&gt; setnx k1 <span class="s2">&quot;dd&quot;</span> <span class="c1"># 同 NX 参数</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; setnx k2 <span class="s2">&quot;dd&quot;</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; <span class="nb">set</span> k3 <span class="m">1</span> 
+OK
+<span class="m">172</span>.17.0.3:6379&gt; incr k3 <span class="c1"># +1</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">2</span>
+<span class="m">172</span>.17.0.3:6379&gt; get k3
+<span class="s2">&quot;2&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; incrby k3 <span class="m">20</span> <span class="c1"># 按数字加</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">22</span>
+<span class="m">172</span>.17.0.3:6379&gt; get k3
+<span class="s2">&quot;22&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; decr k3  <span class="c1"># -1</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">21</span>
+<span class="m">172</span>.17.0.3:6379&gt; decrby k3 <span class="m">10</span> <span class="c1"># 按数字减</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">11</span>
+<span class="m">172</span>.17.0.3:6379&gt; mset k1 <span class="s2">&quot;a&quot;</span> k2 <span class="s2">&quot;b&quot;</span> k3 <span class="s2">&quot;c&quot;</span> <span class="c1"># 批量</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; mget k1 k2 k3
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;a&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;b&quot;</span>
+<span class="m">3</span><span class="o">)</span> <span class="s2">&quot;c&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; msetnx k3 <span class="s2">&quot;d&quot;</span> k4 <span class="s2">&quot;e&quot;</span> <span class="c1"># 批量 同参数NX，一个失败都失败</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; mget k4
+<span class="m">1</span><span class="o">)</span> <span class="o">(</span>nil<span class="o">)</span>
+<span class="m">172</span>.17.0.3:6379&gt; <span class="nb">set</span> kstr <span class="s2">&quot;abcd&quot;</span> 
+OK
+<span class="m">172</span>.17.0.3:6379&gt; getrange kstr <span class="m">0</span> -1 <span class="c1"># 按长度打印</span>
+<span class="s2">&quot;abcd&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; getrange kstr <span class="m">0</span> -2
+<span class="s2">&quot;abc&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; setrange kstr <span class="m">4</span> <span class="s2">&quot;eee&quot;</span> <span class="c1"># 按下标位置添加</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">7</span>
+<span class="m">172</span>.17.0.3:6379&gt; get kstr
+<span class="s2">&quot;abcdeee&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; setex kstr <span class="m">10</span> k5 <span class="c1"># 同参数EX </span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; ttl kstr
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; ttl kstr
+<span class="o">(</span>integer<span class="o">)</span> -2
+<span class="m">172</span>.17.0.3:6379&gt; getset k1 <span class="s2">&quot;ddd&quot;</span> <span class="c1"># 返回旧值，修改新值</span>
+<span class="s2">&quot;a&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; get k1
+<span class="s2">&quot;ddd&quot;</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p>底层数据结构</p>
+</div></blockquote>
+<p>动态字符串</p>
+</section>
+<section id="list">
+<h4>List<a class="headerlink" href="#list" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>常用命令</p>
+</div></blockquote>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; lpush l1 a b c d <span class="c1"># 从左添加</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">4</span>
+<span class="m">172</span>.17.0.3:6379&gt; lpop l1 <span class="c1"># 从左移除</span>
+<span class="s2">&quot;d&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; rpush l1 d <span class="c1"># 从右添加</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">4</span> 
+<span class="m">172</span>.17.0.3:6379&gt; rpop l1 <span class="c1"># 从右移出</span>
+<span class="s2">&quot;d&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; rpoplpush l1 l1 <span class="c1"># 右边出，左边进</span>
+<span class="s2">&quot;a&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; lrange l1 <span class="m">0</span> -1 <span class="c1"># 打印</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;a&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;c&quot;</span>
+<span class="m">3</span><span class="o">)</span> <span class="s2">&quot;b&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; llen l1 <span class="c1"># 长度</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">3</span>
+<span class="m">172</span>.17.0.3:6379&gt; linsert l1 before c e <span class="c1"># 一个值前、后添加</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">4</span>
+<span class="m">172</span>.17.0.3:6379&gt; lrange l1 <span class="m">0</span> -1 <span class="c1"># </span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;a&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;e&quot;</span>
+<span class="m">3</span><span class="o">)</span> <span class="s2">&quot;c&quot;</span>
+<span class="m">4</span><span class="o">)</span> <span class="s2">&quot;b&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; lrem l1 <span class="m">2</span> c <span class="c1"># 删除2个c</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; lrange l1 <span class="m">0</span> -1
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;a&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;e&quot;</span>
+<span class="m">3</span><span class="o">)</span> <span class="s2">&quot;b&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; lset l1 <span class="m">1</span> d <span class="c1"># 下标为1 值改成d</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; lrange l1 <span class="m">0</span> -1
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;a&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;d&quot;</span>
+<span class="m">3</span><span class="o">)</span> <span class="s2">&quot;b&quot;</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p>数据结构</p>
+</div></blockquote>
+</section>
+<section id="set">
+<h4>Set（集合）<a class="headerlink" href="#set" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>常用命令</p>
+</div></blockquote>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; sadd s1 <span class="m">1</span> <span class="m">2</span> <span class="m">3</span> <span class="m">4</span> <span class="m">5</span> <span class="m">3</span> <span class="m">4</span> <span class="c1"># 添加</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">5</span>
+<span class="m">172</span>.17.0.3:6379&gt; smembers s1 <span class="c1"># 列出成员</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;1&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;2&quot;</span>
+<span class="m">3</span><span class="o">)</span> <span class="s2">&quot;3&quot;</span>
+<span class="m">4</span><span class="o">)</span> <span class="s2">&quot;4&quot;</span>
+<span class="m">5</span><span class="o">)</span> <span class="s2">&quot;5&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; sismember s1 <span class="m">4</span> <span class="c1"># 是否包含成员4</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; sismember s1 <span class="m">6</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; scard s1 <span class="c1"># 长度</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">5</span>
+<span class="m">172</span>.17.0.3:6379&gt; srem s1 <span class="m">1</span> <span class="m">2</span> <span class="c1"># 移除 1 2</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">2</span>
+<span class="m">172</span>.17.0.3:6379&gt; spop s1 <span class="m">2</span> <span class="c1"># 随机移除2个</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;4&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;5&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; srandmember s1 <span class="m">2</span> <span class="c1"># 随机两个，但不移出</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;3&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; smove s1 s2 <span class="m">3</span> <span class="c1"># 将s1 中的3 移出至 s2</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; smembers s2 
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;3&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; sinter s1 s2  <span class="c1"># s1 和 s2 交集</span>
+<span class="o">(</span>empty array<span class="o">)</span>
+<span class="m">172</span>.17.0.3:6379&gt; sunion s1 s2 <span class="c1"># 并集</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;3&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; smembers s1
+<span class="o">(</span>empty array<span class="o">)</span>
+<span class="m">172</span>.17.0.3:6379&gt; sadd s1 <span class="m">3</span> <span class="m">2</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">2</span>
+<span class="m">172</span>.17.0.3:6379&gt; sadd s2 <span class="m">4</span> <span class="m">5</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">2</span>
+<span class="m">172</span>.17.0.3:6379&gt; sdiff s1 s2 <span class="c1"># 差集 s1有 s2 没有</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;2&quot;</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p>数据结构</p>
+</div></blockquote>
+<p>哈希表</p>
+</section>
+<section id="hash">
+<h4>Hash<a class="headerlink" href="#hash" title="Permalink to this heading">¶</a></h4>
+<p>适合存储对象。</p>
+<blockquote>
+<div><p>常用命令</p>
+</div></blockquote>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; hset h1 name <span class="s2">&quot;ll&quot;</span> age <span class="m">20</span> <span class="c1"># 添置</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">2</span> 
+<span class="m">172</span>.17.0.3:6379&gt; hget h1 name <span class="c1"># 获取</span>
+<span class="s2">&quot;ll&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; hget h1 age
+<span class="s2">&quot;20&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; hmset h2 name <span class="s1">&#39;ff&#39;</span> age <span class="s1">&#39;30&#39;</span>  <span class="c1"># 批量</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; hexists h1 name <span class="c1"># 是否存在</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; hkeys h1  <span class="c1"># 所有键</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;name&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;age&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; hvals h1 <span class="c1"># 所有值</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;ll&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;20&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; hincrby h1 age <span class="m">11</span> <span class="c1"># 加11</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">31</span>
+<span class="m">172</span>.17.0.3:6379&gt; hsetnx h1 sex <span class="s1">&#39;nan&#39;</span> <span class="c1"># 无此键，设置成功</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; hsetnx h1 sex <span class="s1">&#39;nv&#39;</span> <span class="c1"># 有此键，失败</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; hincrby h1 age -10 <span class="c1"># 减 10</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">21</span>
+<span class="m">172</span>.17.0.3:6379&gt; 
+</pre></div>
+</div>
+<blockquote>
+<div><p>数据结构</p>
+</div></blockquote>
+<p>ziplist hashtable，短的时候是ziplist</p>
+</section>
+<section id="zset">
+<h4>Zset<a class="headerlink" href="#zset" title="Permalink to this heading">¶</a></h4>
+<p>根据score 评分来排序的有序集合。</p>
+<blockquote>
+<div><p>常用命令</p>
+</div></blockquote>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; zadd z1 <span class="m">10</span> <span class="s2">&quot;apple&quot;</span> <span class="m">11</span> <span class="s2">&quot;orange&quot;</span> <span class="m">100</span> <span class="s2">&quot;banana&quot;</span> <span class="c1"># 添加</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; zrangebyscore z1 <span class="m">10</span> <span class="m">20</span> <span class="c1"># 取 分数在 10 - 20 之间的，从低到高</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;apple&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;orange&quot;</span>
+
+<span class="m">172</span>.17.0.3:6379&gt; zrange z1 <span class="m">1</span> <span class="m">2</span>  <span class="c1"># 按下标取</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;orange&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;banana&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; zrevrangebyscore z1 <span class="m">1001</span> <span class="m">11</span> <span class="c1"># 分数 11 - 1001 从高到底</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;banana&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;orange&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; zincrby z1 <span class="m">11</span> apple <span class="c1"># 成员分数加 11</span>
+<span class="s2">&quot;21&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; zrem z1 apple <span class="c1"># 删除 成员</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; zcount z1 <span class="m">1</span> <span class="m">100</span> <span class="c1"># 统计 1 -100 分数的成员数</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">2</span>
+<span class="m">172</span>.17.0.3:6379&gt; zrank z1 orange  <span class="c1"># 查看排名</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; zrank z1 banana
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p>使用场景</p>
+</div></blockquote>
+</section>
+<section id="bitmaps">
+<h4>Bitmaps<a class="headerlink" href="#bitmaps" title="Permalink to this heading">¶</a></h4>
+<p>位操作， 例如日活用户</p>
+<blockquote>
+<div><p>常用命令</p>
+</div></blockquote>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; setbit s1 <span class="m">1</span> <span class="m">1</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; setbit s1 <span class="m">6</span> <span class="m">1</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; setbit s1 <span class="m">11</span> <span class="m">1</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; setbit s1 <span class="m">12</span> <span class="m">1</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; 
+<span class="m">172</span>.17.0.3:6379&gt; getbit s1 <span class="m">1</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; getbit s1 <span class="m">6</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; getbit s1 <span class="m">8</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; bitcount s1 <span class="m">0</span> -1 <span class="c1"># 按范围计数</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">4</span>
+<span class="m">172</span>.17.0.3:6379&gt; setbit s2 <span class="m">1</span> <span class="m">1</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; setbit s2 <span class="m">2</span>  <span class="m">1</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; setbit s2 <span class="m">10</span>  <span class="m">1</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; setbit s2 <span class="m">12</span>  <span class="m">1</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">0</span>
+<span class="m">172</span>.17.0.3:6379&gt; bitop and s1 s2 <span class="c1"># 取交集</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">2</span>
+</pre></div>
+</div>
+</section>
+<section id="hyperloglog">
+<h4>HyperLogLog<a class="headerlink" href="#hyperloglog" title="Permalink to this heading">¶</a></h4>
+<p>计算基数统计（不重复元素）</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; pfadd p1 <span class="m">1</span> <span class="m">2</span> <span class="m">3</span> <span class="m">4</span> <span class="m">5</span> <span class="m">2</span> <span class="m">3</span>
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; pfcount p1
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">5</span>
+<span class="m">172</span>.17.0.3:6379&gt; pfadd p2 <span class="m">2</span> <span class="m">7</span> <span class="m">8</span> 
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">172</span>.17.0.3:6379&gt; pfmerge p3 p1 p2 <span class="c1"># 合并</span>
+OK
+<span class="m">172</span>.17.0.3:6379&gt; pfcount p3
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">7</span>
+</pre></div>
+</div>
+</section>
+<section id="geospatial">
+<h4>Geospatial<a class="headerlink" href="#geospatial" title="Permalink to this heading">¶</a></h4>
+<p>地理位置信息</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; geoadd china:city <span class="m">106</span>.50 <span class="m">29</span>.53 chongqing <span class="m">114</span>.05 <span class="m">22</span>.52 shenzhen <span class="m">116</span>.38 <span class="m">39</span>.90 beijing <span class="m">121</span>.47 <span class="m">31</span>.23 shanghai
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">4</span>
+<span class="m">172</span>.17.0.3:6379&gt; geopos china:city beijing <span class="c1"># 获取坐标</span>
+<span class="m">1</span><span class="o">)</span> <span class="m">1</span><span class="o">)</span> <span class="s2">&quot;116.38000041246414185&quot;</span>
+   <span class="m">2</span><span class="o">)</span> <span class="s2">&quot;39.90000009167092543&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; geopos china:city shanghai 
+<span class="m">1</span><span class="o">)</span> <span class="m">1</span><span class="o">)</span> <span class="s2">&quot;121.47000163793563843&quot;</span>
+   <span class="m">2</span><span class="o">)</span> <span class="s2">&quot;31.22999903975783553&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; geodist china:city beijing shanghai <span class="c1"># 两点距离</span>
+<span class="s2">&quot;1068153.5181&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; geodist china:city beijing shanghai km
+<span class="s2">&quot;1068.1535&quot;</span>
+<span class="m">172</span>.17.0.3:6379&gt; georadius china:city <span class="m">100</span> <span class="m">30</span> <span class="m">1000</span> km <span class="c1"># 根据经纬度 1000 km 范围内 的城市</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;chongqing&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id3">
+<h3>Redis 配置文件<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<p>/etc/redis/redis.conf</p>
+<ul class="simple">
+<li><p>Units单位</p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Note on units: when memory size is needed, it is possible to specify</span>
+<span class="c1"># it in the usual form of 1k 5GB 4M and so forth:</span>
+<span class="c1">#</span>
+<span class="c1"># 1k =&gt; 1000 bytes</span>
+<span class="c1"># 1kb =&gt; 1024 bytes</span>
+<span class="c1"># 1m =&gt; 1000000 bytes</span>
+<span class="c1"># 1mb =&gt; 1024*1024 bytes</span>
+<span class="c1"># 1g =&gt; 1000000000 bytes</span>
+<span class="c1"># 1gb =&gt; 1024*1024*1024 bytes</span>
+<span class="c1">#</span>
+<span class="c1"># units are case insensitive so 1GB 1Gb 1gB are all the same.</span>
+</pre></div>
+</div>
+<p>​	只支持bytes不支持bit， 大小写不敏感</p>
+<ul class="simple">
+<li><p>INCLUDE包含</p></li>
+<li><p>网络配置</p></li>
+</ul>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>注释掉可以远程访问
+<span class="c1"># bind 192.168.1.100 10.0.0.1</span>
+<span class="c1"># bind 127.0.0.1 ::1</span>
+保护模式， no 可远程访问
+protected-mode yes
+tcp 连接的值
+tcp-backlog<span class="o">=</span><span class="m">511</span>
+超时时间
+timeout <span class="m">0</span>
+检测心跳的间隔
+tcp-keepalive <span class="m">300</span>
+日志级别
+loglevel notice
+日志路径
+logfile
+最大终端连接数
+<span class="c1"># maxclients 10000</span>
+</pre></div>
+</div>
+<ul>
+<li><p>设置密码</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>config get requirepass
+config <span class="nb">set</span> requirepass <span class="s2">&quot;123456&quot;</span>
+auth <span class="m">123456</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</section>
+<section id="id4">
+<h3>发布和订阅<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<p>订阅者：</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; subscribe channel1
+Reading messages... <span class="o">(</span>press Ctrl-C to quit<span class="o">)</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;subscribe&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;channel1&quot;</span>
+<span class="m">3</span><span class="o">)</span> <span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+<span class="m">1</span><span class="o">)</span> <span class="s2">&quot;message&quot;</span>
+<span class="m">2</span><span class="o">)</span> <span class="s2">&quot;channel1&quot;</span>
+<span class="m">3</span><span class="o">)</span> <span class="s2">&quot;hello&quot;</span>
+</pre></div>
+</div>
+<p>发布者：</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="m">172</span>.17.0.3:6379&gt; publish channel1 hello
+<span class="o">(</span>integer<span class="o">)</span> <span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="redis-in-python">
+<h3>Redis in python<a class="headerlink" href="#redis-in-python" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">redis</span>
+
+</pre></div>
+</div>
+</section>
+<section id="id5">
+<h3>Redis事务和锁<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<section id="id6">
+<h4>事务<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>事务的应用</p>
+</div></blockquote>
+<blockquote>
+<div><p>事务的特性</p>
+</div></blockquote>
+</section>
+<section id="id7">
+<h4>锁的使用<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h4>
+<p>悲观锁、乐观锁</p>
+</section>
+<section id="id8">
+<h4>秒杀系统<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h4>
+</section>
+</section>
+<section id="id9">
+<h3>Redis持久化<a class="headerlink" href="#id9" title="Permalink to this heading">¶</a></h3>
+<section id="rdb-redis-database">
+<h4>RDB（redis database）<a class="headerlink" href="#rdb-redis-database" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="aof-append-only-file">
+<h4>AOF（append only file）<a class="headerlink" href="#aof-append-only-file" title="Permalink to this heading">¶</a></h4>
+</section>
+</section>
+<section id="id10">
+<h3>主从复制<a class="headerlink" href="#id10" title="Permalink to this heading">¶</a></h3>
+<section id="id11">
+<h4>一主多从<a class="headerlink" href="#id11" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id12">
+<h4>复制原理<a class="headerlink" href="#id12" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id13">
+<h4>一主二仆<a class="headerlink" href="#id13" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id14">
+<h4>薪火相传<a class="headerlink" href="#id14" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id15">
+<h4>反客为主<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id16">
+<h4>哨兵模式<a class="headerlink" href="#id16" title="Permalink to this heading">¶</a></h4>
+</section>
+</section>
+<section id="id17">
+<h3>Redis集群<a class="headerlink" href="#id17" title="Permalink to this heading">¶</a></h3>
+<section id="id18">
+<h4>集群的搭建<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id19">
+<h4>集群操作与故障恢复<a class="headerlink" href="#id19" title="Permalink to this heading">¶</a></h4>
+</section>
+</section>
+<section id="id20">
+<h3>应用问题解决<a class="headerlink" href="#id20" title="Permalink to this heading">¶</a></h3>
+<section id="id21">
+<h4>缓存穿透<a class="headerlink" href="#id21" title="Permalink to this heading">¶</a></h4>
+<p>命中率低</p>
+</section>
+<section id="id22">
+<h4>缓存击穿<a class="headerlink" href="#id22" title="Permalink to this heading">¶</a></h4>
+<p>某个key过期，然后出现大量访问数据库的情况</p>
+</section>
+<section id="id23">
+<h4>缓存雪崩<a class="headerlink" href="#id23" title="Permalink to this heading">¶</a></h4>
+<p>大量key同时过期，导致整个web应用服务器环境崩塌（数据库，应用服务器）</p>
+</section>
+</section>
+<section id="id24">
+<h3>Redis分布式锁<a class="headerlink" href="#id24" title="Permalink to this heading">¶</a></h3>
+<p>实现</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">test</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, frank.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
