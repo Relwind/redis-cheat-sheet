@@ -1,588 +1,293 @@
-# Redis笔记01
+# Redis命令速查
 
-> 本笔记参考 [小林coding](https://github.com/xiaolincoder/CS-Base)
->
-> [命令查询手册](http://doc.redisfans.com)
->
-> [尚硅谷redis入门到精通](https://www.bilibili.com/video/BV1Rv41177Af?spm_id_from=333.337.search-card.all.click)
->
-> Redis实战
-
-## Redis基础
-
-### 了解NoSql
-
-NoSql（not only sql), 泛指非关系型数据库。
-
-NoSql不依赖业务逻辑存储，以 key-value的形式存贮。
-
-特点：
-
-- 不遵循sql标准
-- 不支持ACID。原子性（**A**tomicity，或称不可分割性）、一致性（**C**onsistency）、隔离性（**I**solation，又称独立性）、持久性（**D**urability）。
-- 远超SQL的性能。
-
-> 适用场景
-
-- 对数据高并发读写
-- 海量数据的读写
-- 对数据高可扩展性的
-
-> 不适用场景
-
-- 需要事务支持
-- 基于sql的结构化存储
-
-> 常见的NOSql数据库
-
-- Memcache
-- Redis
-- MongoDB
-
-### 连接redis
-
-shell使用 redis-cli 
-
-> 通过docker 使用容器内redis-cli连接现有容器的redis-server
+## KEY操作
 
 ```shell
-# 现有redis-server容器
-docker run --name test_redis -v $PWD/develop/redis:/data:rw -p 6379:6379 \
-    -d redis redis-server --save 60 1 --loglevel warning
-# 查看 redis-server端的网络地址
-docker network inspect bridge
-# 找到具体地址
-# 连接server
-docker run -it  --rm redis redis-cli -h 172.17.0.3
+keys pattern # 根据给定模式查找键
+scan cursor [MATCH pattern] [COUNT count] # 一个基于游标的迭代器
+randomkey # 从数据库中随机返回一个键
+sort key [BY pattern] [LIMIT start count] [GET pattern] [ASC|DESC] [ALPHA] [STORE dstkey] # 排序
+
+dbsize # 当前数据库内键的数量
+exists key [key ...] # 一个或者多个键是否存在
+type key # 返回键的类型
+
+rename key newkey # 键改名
+renamenx key newkey # 键改名，新名字没有占用才成功
+move key db # 当前数据库键移动到指定数据库
+del key [key ...] # 删除一个或多个键
+unlink key [key ...] # 非阻塞删除键
+flushdb # 清空当前数据库
+flushall # 清空所有数据库
+
+expire key seconds [NX|XX|GT|LT] # 设置键过期时间 秒
+pexpire key milliseconds [NX|XX|GT|LT] # 毫秒
+
+ttl key # 还有多少秒过期
+pttl key # 毫秒
+persist key # 删除键的过期时间设置
 ```
 
-### Redis 常用操作及数据类型
 
-#### key操作
+
+## 字符串（string）
 
 ```shell
-172.17.0.3:6379> keys * # 查看所有键
-1) "k1"
-172.17.0.3:6379> exists k1 # 是否存在
-(integer) 1
-172.17.0.3:6379> type k1  # 数据类型
-string
-172.17.0.3:6379> del k1 # 删除
-(integer) 1
-172.17.0.3:6379> set k2 11 # 设置k2 string
-OK
-172.17.0.3:6379> unlink k2 # 非阻塞删除
-(integer) 1
-172.17.0.3:6379> expire k2 10 # 设置 数据存活时间
-(integer) 0
-172.17.0.3:6379> ttl k2 # 查看存活时间
-(integer) -2
-172.17.0.3:6379> select 1 # 选择数据库
-OK
-172.17.0.3:6379[1]> dbsize  # 当前数据库数据数量
-(integer) 0
-172.17.0.3:6379[1]> select 0 # 选择数据库
-OK
+set key value [NX|XX] [GET] [EX seconds|PX milliseconds|EXAT uni # 设置键和过期时间
+get key # 获取键的值
+getset key value # 设置键的值，并返回旧值
+setnx key value # 设置键的值，仅有没有此键时成功
+setex key seconds value # 设置键的值，并设置过期时间（秒）
+psetex key milliseconds value # 设置键的值，并设置过期时间（毫秒）
 
-172.17.0.3:6379> flushdb # 清空当前数据库
-OK
-172.17.0.3:6379> flushall # 清空所有
-OK
+mset key value [key value ...] # 一次设置多个key value
+mget key [key ...] # 一次获取多个key的值
+msetnx key value [key value ...] # 批量设置多个key value，仅没有此key时成功
 
+strlen key # 字符串长度
+setrange key offset value # 从字符串指定索引开始修改
+getrange key start end # 从start-end区间的字符串
+append key value # 指定key后拼接value
+
+incr key # 整数+1
+decr key # 整数-1
+incrby key increment # 加一个数
+decrby key decrement # 减一个数
+incrbyfloat key increment # 加浮点型
 
 ```
 
 
 
-#### String
-
-字符串value的最大是512M。
-
-> 常用命令
+## 列表(list)
 
 ```shell
-172.17.0.3:6379> set k1 "a"  
-OK
-172.17.0.3:6379> set k1 "a" NX # 存在失败
-(nil)
-172.17.0.3:6379> set k1 "a" XX # 不存在失败
-OK
-172.17.0.3:6379> get k1
-"a"
-172.17.0.3:6379> set k1  "b" EX 20 # 20 秒超时
-OK
-172.17.0.3:6379> ttl k1
-(integer) 15
-172.17.0.3:6379> set k1  "b" PX 20 # 20毫秒超时
-OK
-172.17.0.3:6379> ttl k1
-(integer) -2
-172.17.0.3:6379> get k1
-"bb"
-172.17.0.3:6379> append k1 "cc" # 在字符串后追加
-(integer) 4
-172.17.0.3:6379> get k1
-"bbcc"
-172.17.0.3:6379> strlen k1  # 长度
-(integer) 4
-172.17.0.3:6379> setnx k1 "dd" # 同 NX 参数
-(integer) 0
-172.17.0.3:6379> setnx k2 "dd"
-(integer) 1
-172.17.0.3:6379> set k3 1 
-OK
-172.17.0.3:6379> incr k3 # +1
-(integer) 2
-172.17.0.3:6379> get k3
-"2"
-172.17.0.3:6379> incrby k3 20 # 按数字加
-(integer) 22
-172.17.0.3:6379> get k3
-"22"
-172.17.0.3:6379> decr k3  # -1
-(integer) 21
-172.17.0.3:6379> decrby k3 10 # 按数字减
-(integer) 11
-172.17.0.3:6379> mset k1 "a" k2 "b" k3 "c" # 批量
-OK
-172.17.0.3:6379> mget k1 k2 k3
-1) "a"
-2) "b"
-3) "c"
-172.17.0.3:6379> msetnx k3 "d" k4 "e" # 批量 同参数NX，一个失败都失败
-(integer) 0
-172.17.0.3:6379> mget k4
-1) (nil)
-172.17.0.3:6379> set kstr "abcd" 
-OK
-172.17.0.3:6379> getrange kstr 0 -1 # 按长度打印
-"abcd"
-172.17.0.3:6379> getrange kstr 0 -2
-"abc"
-172.17.0.3:6379> setrange kstr 4 "eee" # 按下标位置添加
-(integer) 7
-172.17.0.3:6379> get kstr
-"abcdeee"
-172.17.0.3:6379> setex kstr 10 k5 # 同参数EX 
-OK
-172.17.0.3:6379> ttl kstr
-(integer) 0
-172.17.0.3:6379> ttl kstr
-(integer) -2
-172.17.0.3:6379> getset k1 "ddd" # 返回旧值，修改新值
-"a"
-172.17.0.3:6379> get k1
-"ddd"
+lpush key element [element ...] # 一个或者多个元素添加至列表，左进
+lpushx key element [element ...] # 一个或者多个元素添加至列表,左进，仅列表存在成功
+rpush key element [element ...] # 一个或者多个元素添加至列表，右进
+rpushx key element [element ...] # 一个或者多个元素添加至列表,右进，仅列表存在成功
 
+lpop list # 移除并返回左一
+rpop list # 移除并返回右一
+blpop key [key ...] timeout # 移除并返回左一,指定时间内
+brpop key [key ...] timeout # 移除并返回右一,指定时间内
+
+rpoplpush source destination # 从 source 右边移出一个向destination左边添加
+brpoplpush source destination # 从 source 右边移出一个向destination左边添加,在指定时间内
+
+lindex list index # 获取指定下标的元素
+llen list # 长度
+lrange list start end # start-end 获取
+linsert key BEFORE|AFTER pivot element # 在 pivot 之前/之后插入元素
+lrem list count element # 移除指定元素
+lset key index element # 将下标的值改成目标值
+ltrim list start end # 根据start end 裁剪list
 ```
 
-> 底层数据结构
 
-动态字符串
 
-#### List
-
-> 常用命令
+## 字典(hash)
 
 ```shell
-172.17.0.3:6379> lpush l1 a b c d # 从左添加
-(integer) 4
-172.17.0.3:6379> lpop l1 # 从左移除
-"d"
-172.17.0.3:6379> rpush l1 d # 从右添加
-(integer) 4 
-172.17.0.3:6379> rpop l1 # 从右移出
-"d"
-172.17.0.3:6379> rpoplpush l1 l1 # 右边出，左边进
-"a"
-172.17.0.3:6379> lrange l1 0 -1 # 打印
-1) "a"
-2) "c"
-3) "b"
-172.17.0.3:6379> llen l1 # 长度
-(integer) 3
-172.17.0.3:6379> linsert l1 before c e # 一个值前、后添加
-(integer) 4
-172.17.0.3:6379> lrange l1 0 -1 # 
-1) "a"
-2) "e"
-3) "c"
-4) "b"
-172.17.0.3:6379> lrem l1 2 c # 删除2个c
-(integer) 1
-172.17.0.3:6379> lrange l1 0 -1
-1) "a"
-2) "e"
-3) "b"
-172.17.0.3:6379> lset l1 1 d # 下标为1 值改成d
-OK
-172.17.0.3:6379> lrange l1 0 -1
-1) "a"
-2) "d"
-3) "b"
+hset key field value [field value ...] # 设置一个后者多个值
+hsetnx key field value # 设置键值对，存在设置失败
+hget key field # 根据字段获取值
+hmset key field value [field value ...] # 批量设置
+hmget key field [field ...] # 批量获取
 
+hincrby key field increment # 键的某字段增加一个数
+hincrbyfloat key field increment # 键的某字段增加一个浮点数
+
+hexists key field # 是否存在
+hlen key # 键值对数量
+hdel key field [field ...] # 删除一个或多个字段
+
+hkeys key # 返回所有键
+hvals key # 返回所有值
+hgetall key # 返回所有键和值
+hscan key cursor [MATCH pattern] [COUNT count] # 渐进式遍历 
 ```
 
-> 数据结构
 
 
-
-#### Set（集合）
-
-> 常用命令
+## 集合(set)
 
 ```shell
-172.17.0.3:6379> sadd s1 1 2 3 4 5 3 4 # 添加
-(integer) 5
-172.17.0.3:6379> smembers s1 # 列出成员
-1) "1"
-2) "2"
-3) "3"
-4) "4"
-5) "5"
-172.17.0.3:6379> sismember s1 4 # 是否包含成员4
-(integer) 1
-172.17.0.3:6379> sismember s1 6
-(integer) 0
-172.17.0.3:6379> scard s1 # 长度
-(integer) 5
-172.17.0.3:6379> srem s1 1 2 # 移除 1 2
-(integer) 2
-172.17.0.3:6379> spop s1 2 # 随机移除2个
-1) "4"
-2) "5"
-172.17.0.3:6379> srandmember s1 2 # 随机两个，但不移出
-1) "3"
-172.17.0.3:6379> smove s1 s2 3 # 将s1 中的3 移出至 s2
-(integer) 1
-172.17.0.3:6379> smembers s2 
-1) "3"
-172.17.0.3:6379> sinter s1 s2  # s1 和 s2 交集
-(empty array)
-172.17.0.3:6379> sunion s1 s2 # 并集
-1) "3"
-172.17.0.3:6379> smembers s1
-(empty array)
-172.17.0.3:6379> sadd s1 3 2 
-(integer) 2
-172.17.0.3:6379> sadd s2 4 5
-(integer) 2
-172.17.0.3:6379> sdiff s1 s2 # 差集 s1有 s2 没有
-1) "2"
+sadd key member [member ...] # 添加一个或多个值
+spop key [count] # 随机返回N个
+smove source destination member # 移动成员从source到destination集合
+srem key member [member ...] # 移除一个或者多个成员
 
+scard key # 返回成员数量
+sismember key member # 是否包含此成员
+srandmember key [count] # 随机返回N个，不删除
+smembers key # 返回所有成员
+sscan key cursor [MATCH pattern] [COUNT count] # 渐进式遍历
+
+sdiff key [key ...] # 集合差集,前者中有，后者中没有的元素
+sdiffstore destination key [key ...] # 集合差集，存储至destination
+sunion key [key ...] # 集合并集，多个集合中所有的元素
+sunionstore destination key [key ...] # 集合并集，存储至destination
 ```
 
-> 数据结构
 
-哈希表
 
-#### Hash
-
-适合存储对象。
-
-> 常用命令
+## 有序集合(sorted set)
 
 ```shell
-172.17.0.3:6379> hset h1 name "ll" age 20 # 添置
-(integer) 2 
-172.17.0.3:6379> hget h1 name # 获取
-"ll"
-172.17.0.3:6379> hget h1 age
-"20"
-172.17.0.3:6379> hmset h2 name 'ff' age '30'  # 批量
-OK
-172.17.0.3:6379> hexists h1 name # 是否存在
-(integer) 1
-172.17.0.3:6379> hkeys h1  # 所有键
-1) "name"
-2) "age"
-172.17.0.3:6379> hvals h1 # 所有值
-1) "ll"
-2) "20"
-172.17.0.3:6379> hincrby h1 age 11 # 加11
-(integer) 31
-172.17.0.3:6379> hsetnx h1 sex 'nan' # 无此键，设置成功
-(integer) 1
-172.17.0.3:6379> hsetnx h1 sex 'nv' # 有此键，失败
-(integer) 0
-172.17.0.3:6379> hincrby h1 age -10 # 减 10
-(integer) 21
-172.17.0.3:6379> 
+zadd key [NX|XX] [GT|LT] [CH] [INCR] score member [score member ...] # 添加一个值多个值到集合
+zincrby key increment member # 增加一个值
+zscore key member # 返回指定成员的分数
+zcard key # 成员数量
+zrank key member # 返回指定成员按分数从小到大的排名
+zrevrank key member # 返回指定成员按分数从大到小的排名 
 
+zcount key min max # 分值在 [min, max]之间的成员
+zrange key start stop [BYSCORE|BYLEX] [REV] [LIMIT offset count] [WITHSCORES] # 指定start-end，按分值从小到大返回成员
+zrangebyscore key min max [WITHSCORES] [LIMIT offset count] # 分数在[min,max]之间，返回成员和分数
+zscan key cursor [MATCH pattern] [COUNT count] # 以渐进的方式返回
+zrem key member [member ...] # 删除成员
+zremrangebyrank key start stop # 删除排名在 [start, stop] 的成员，按分数从小到大排名
+zremrangebyscore key min max # 删除分数在[min, max]的成员
+
+zinterstore destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX] # 将集合做交集，结果存储在destination 集合
+zunionstore destination numkeys key [key ...] [WEIGHTS weight [weight ...]] [AGGREGATE SUM|MIN|MAX] # 将集合做并集，结果存储在destination 集合
+
+zlexcount key min max # 指定大小范围内的成员数量
+zrangebylex key min max [LIMIT offset count] # 按从小打到的顺序返回成员
+zremrangebylex key min max # 从集合里移除指定大小范围的成员
 ```
 
-> 数据结构
 
-ziplist hashtable，短的时候是ziplist
 
-#### Zset
-
-根据score 评分来排序的有序集合。
-
-> 常用命令
+## 位图（bitmap）
 
 ```shell
-172.17.0.3:6379> zadd z1 10 "apple" 11 "orange" 100 "banana" # 添加
-(integer) 0
-172.17.0.3:6379> zrangebyscore z1 10 20 # 取 分数在 10 - 20 之间的，从低到高
-1) "apple"
-2) "orange"
+setbit key offset value # 位图索引上设置0或者1
+getbit key offset # 获取索引上的二进制值
 
-172.17.0.3:6379> zrange z1 1 2  # 按下标取
-1) "orange"
-2) "banana"
-172.17.0.3:6379> zrevrangebyscore z1 1001 11 # 分数 11 - 1001 从高到底
-1) "banana"
-2) "orange"
-172.17.0.3:6379> zincrby z1 11 apple # 成员分数加 11
-"21"
-172.17.0.3:6379> zrem z1 apple # 删除 成员
-(integer) 1
-172.17.0.3:6379> zcount z1 1 100 # 统计 1 -100 分数的成员数
-(integer) 2
-172.17.0.3:6379> zrank z1 orange  # 查看排名
-(integer) 0
-172.17.0.3:6379> zrank z1 banana
-(integer) 1
-
+bitcount key [start end [BYTE|BIT]] # 统计start-end 置1的数量 bit按位 byte按字节
+bitop operation destkey key [key ...] # 对多个位图进行逻辑运算（and、or、xor、not），并将结果存放至 destkey
 ```
 
-> 使用场景
 
 
-
-#### Bitmaps
-
-位操作， 例如日活用户
-
-> 常用命令
+## HyperLogLog(基数)
 
 ```shell
-172.17.0.3:6379> setbit s1 1 1 
-(integer) 0
-172.17.0.3:6379> setbit s1 6 1 
-(integer) 0
-172.17.0.3:6379> setbit s1 11 1 
-(integer) 0
-172.17.0.3:6379> setbit s1 12 1 
-(integer) 0
-172.17.0.3:6379> 
-172.17.0.3:6379> getbit s1 1
-(integer) 1
-172.17.0.3:6379> getbit s1 6
-(integer) 1
-172.17.0.3:6379> getbit s1 8
-(integer) 0
-172.17.0.3:6379> bitcount s1 0 -1 # 按范围计数
-(integer) 4
-172.17.0.3:6379> setbit s2 1 1 
-(integer) 0
-172.17.0.3:6379> setbit s2 2  1 
-(integer) 0
-172.17.0.3:6379> setbit s2 10  1 
-(integer) 0
-172.17.0.3:6379> setbit s2 12  1 
-(integer) 0
-172.17.0.3:6379> bitop and s1 s2 # 取交集
-(integer) 2
-
+pfadd key [element [element ...]] # 一个或者多个添加至hyperloglog里
+pfcount key [key ...] # 一个或者多个hyperloglog里基数的个数
+pfmerge destkey sourcekey [sourcekey ...] # 合并操作，将一个或者多个sourcekey合并至destkey 
 ```
 
 
 
-#### HyperLogLog
-
-计算基数统计（不重复元素）
+## 地理位置（Geospatial）
 
 ```shell
-172.17.0.3:6379> pfadd p1 1 2 3 4 5 2 3
-(integer) 1
-172.17.0.3:6379> pfcount p1
-(integer) 5
-172.17.0.3:6379> pfadd p2 2 7 8 
-(integer) 1
-172.17.0.3:6379> pfmerge p3 p1 p2 # 合并
-OK
-172.17.0.3:6379> pfcount p3
-(integer) 7
-
+geoadd key [NX|XX] [CH] longitude latitude member [longitude lat # 添加一个或者多个地理位置
+geopos key member [member ...] # 获取其经纬度
+geodist key member1 member2 [M|KM|FT|MI] # 两者之间的距离
+georadiusbymember key member radius M|KM|FT|MI [WITHCOORD] [WITHDIST] [WITHHASH] [ASCIDESC] [COUNT count] # 返回该位置方圆多少距离的其他位置
+geohash key member [member ...] # 计算 geo hash值
 ```
 
-#### Geospatial
 
-地理位置信息
+
+## 事务（transaction）
 
 ```shell
-172.17.0.3:6379> geoadd china:city 106.50 29.53 chongqing 114.05 22.52 shenzhen 116.38 39.90 beijing 121.47 31.23 shanghai
-(integer) 4
-172.17.0.3:6379> geopos china:city beijing # 获取坐标
-1) 1) "116.38000041246414185"
-   2) "39.90000009167092543"
-172.17.0.3:6379> geopos china:city shanghai 
-1) 1) "121.47000163793563843"
-   2) "31.22999903975783553"
-172.17.0.3:6379> geodist china:city beijing shanghai # 两点距离
-"1068153.5181"
-172.17.0.3:6379> geodist china:city beijing shanghai km
-"1068.1535"
-172.17.0.3:6379> georadius china:city 100 30 1000 km # 根据经纬度 1000 km 范围内 的城市
-1) "chongqing"
+multi # 开始事务
+exec # 执行事务
+discard # 取消事务
 
+watch key [key ...] # 监视一个或者多个键，（上乐观锁）
+unwatch # 取消所有键的监视
 ```
 
 
 
-### Redis 配置文件
-
-/etc/redis/redis.conf
-
-- Units单位
+## 脚本（script）
 
 ```shell
-# Note on units: when memory size is needed, it is possible to specify
-# it in the usual form of 1k 5GB 4M and so forth:
-#
-# 1k => 1000 bytes
-# 1kb => 1024 bytes
-# 1m => 1000000 bytes
-# 1mb => 1024*1024 bytes
-# 1g => 1000000000 bytes
-# 1gb => 1024*1024*1024 bytes
-#
-# units are case insensitive so 1GB 1Gb 1gB are all the same.
+eval script numkeys [key [key ...]] [arg [arg ...]] # 执行lua脚本
+evalsha sha1 numkeys [key [key ...]] [arg [arg ...]] # 执行校验并载入相应的脚本
+
+script load script # 载入给定的lua脚本
+script exists sha1 [sha1 ...] # 判断lua脚本是否载入
+script kill  # 杀死正在执行的lua脚本
+script flush # 移除所有lua脚本
 ```
 
-​	只支持bytes不支持bit， 大小写不敏感
 
-- INCLUDE包含
 
-- 网络配置
+## 发布和订阅(publish/subscribe)
 
 ```shell
-注释掉可以远程访问
-# bind 192.168.1.100 10.0.0.1
-# bind 127.0.0.1 ::1
-保护模式， no 可远程访问
-protected-mode yes
-tcp 连接的值
-tcp-backlog=511
-超时时间
-timeout 0
-检测心跳的间隔
-tcp-keepalive 300
-日志级别
-loglevel notice
-日志路径
-logfile
-最大终端连接数
-# maxclients 10000
+publish channel message # 给某频道发布消息
+subscribe channel [channel ...] # 订阅
+psubscribe pattern [pattern ...] # 根据模式订阅
+
+unsubscribe [channel [channel ...]] # 取消订阅
+punsubscribe pattern [pattern ...] # 根据模式取消订阅，如果没有提供模式，则取消所有模式订阅
+
+pubsub channels # 查看订阅信息
+pubsub cahnnel # 返回该频道订阅者数量
+pubsub numpat # 返回当前被订阅模式的数量
 ```
 
-- 设置密码
-
-  ```shell
-  config get requirepass
-  config set requirepass "123456"
-  auth 123456
-  
-  ```
-
-
-
-### 发布和订阅
-
-订阅者：
+## Redis配置&其他
 
 ```shell
-172.17.0.3:6379> subscribe channel1
-Reading messages... (press Ctrl-C to quit)
-1) "subscribe"
-2) "channel1"
-3) (integer) 1
-1) "message"
-2) "channel1"
-3) "hello"
+auth password # 使用密码连接redis
+echo message # 打印
+ping # 向服务器发送ping请求
+qiut # 退出连接
+select number # 选择数据库
 
+client setname name # 给当前客户端起个名字
+client getname # 获取名字
+client list # 所有连接服务器的终端信息
+client kill ip:port # 关闭指定客户端
 
+# 持久化相关
+save # rdb持久化操作，会阻塞客户端
+bgsave # 启动子进程执行rdb持久化，不会阻塞
+bgrewriteaof # aof文件重写
+lastsave # 服务器最后一次持久化的时间戳
+
+# 配置相关
+config set option value # 给配置选项设定值
+config get option # 获取某项信息
+config rewrite # 重写配置，并持久化
+config resetstat # 重置服务器的统计数据
+
+info [section] # 返回服务器各项信息
+time #当前服务器的unix时间戳
+shutdown [save|nosave] # 关闭服务器
+
+# 调试相关
+slowlog get [number] #查看慢日志
+slowlog len #慢日志条数
+slowlog reset #清空慢日志
+monitor #启动监视器，打印服务器执行的命令
+debug segfault # 让redis段错误，使其崩溃
+debug object key # 查看与有关键相关的调试信息
+object refcount key #查看键的值被引用的次数
+object encoding key # 查看建的值使用的内部表示
+object idletime key #查看给定键的空闲时间
 ```
 
-发布者：
+
+
+## 命令行
 
 ```shell
-172.17.0.3:6379> publish channel1 hello
-(integer) 1
-
+redis-server # redis server
+redis-cli # client
+redis-benchmark # 性能测试
+redis-check-rdb  # 检查 RDB
+redis-check-aof  # 检查 AOF
+redis-sentinel   # 哨兵
 ```
 
-
-
-### Redis in python
-
-```python
-import redis
-
-```
-
-
-
-### Redis事务和锁
-
-#### 事务
-
-> 事务的应用
-
-
-
-> 事务的特性
-
-#### 锁的使用
-
-悲观锁、乐观锁
-
-
-
-#### 秒杀系统
-
-### Redis持久化
-
-#### RDB（redis database）
-
-#### AOF（append only file）
-
-### 主从复制
-
-#### 一主多从
-
-#### 复制原理
-
-#### 一主二仆
-
-#### 薪火相传
-
-#### 反客为主
-
-#### 哨兵模式
-
-### Redis集群
-
-#### 集群的搭建
-
-#### 集群操作与故障恢复
-
-### 应用问题解决
-
-#### 缓存穿透
-
-命中率低
-
-#### 缓存击穿
-
-某个key过期，然后出现大量访问数据库的情况
-
-#### 缓存雪崩
-
-大量key同时过期，导致整个web应用服务器环境崩塌（数据库，应用服务器）
-
-### Redis分布式锁
-
-实现
